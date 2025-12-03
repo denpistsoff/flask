@@ -8,7 +8,7 @@ import os
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///scheduler.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = 'dev-secret-key-2025-very-secure-key'
+app.config['SECRET_KEY'] = 'qewadszcx'
 
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
@@ -509,7 +509,6 @@ def get_schedule():
 @login_required
 def generate_schedule():
     try:
-        # Удаляем старые слоты текущего пользователя
         ScheduleSlot.query.filter_by(user_id=current_user.id).delete()
 
         courses = Course.query.filter_by(user_id=current_user.id).all()
@@ -521,42 +520,36 @@ def generate_schedule():
             return jsonify({'success': False, 'error': 'Нет курсов для расписания'}), 400
 
         slots_created = 0
-        MAX_ATTEMPTS = 200  # Увеличим количество попыток
+        MAX_ATTEMPTS = 200
 
         for course in courses:
             hours_placed = 0
             attempts = 0
 
-            # Получаем предпочитаемые дни преподавателя
             teacher = Teacher.query.filter_by(id=course.teacher_id, user_id=current_user.id).first()
             preferred_days = []
             if teacher and teacher.preferred_days:
                 preferred_days = [int(d.strip()) for d in teacher.preferred_days.split(',') if d.strip()]
 
-            # Если нет предпочитаемых дней, используем все рабочие дни (1-5)
+            # Если нет предпочитаемых дней, используем все рабочие дни
             if not preferred_days:
                 preferred_days = [1, 2, 3, 4, 5]
 
-            # Приводим к индексам 0-4
             preferred_day_indices = [d - 1 for d in preferred_days if 1 <= d <= 5]
 
             while hours_placed < course.hours and attempts < MAX_ATTEMPTS:
                 attempts += 1
 
-                # Пробуем сначала предпочитаемые дни
                 for day_index in preferred_day_indices:
                     if hours_placed >= course.hours:
                         break
 
-                    # Пробуем разные временные слоты
                     slot_order = list(range(7))
-                    # Можно добавить предпочитаемые слоты если нужно
 
                     for slot in slot_order:
                         if hours_placed >= course.hours:
                             break
 
-                        # Проверяем доступность преподавателя
                         teacher_busy = ScheduleSlot.query.filter_by(
                             day=day_index, slot=slot, teacher_id=course.teacher_id, user_id=current_user.id
                         ).first()
@@ -564,7 +557,6 @@ def generate_schedule():
                         if teacher_busy:
                             continue
 
-                        # Проверяем доступность группы
                         group_busy = ScheduleSlot.query.filter_by(
                             day=day_index, slot=slot, group_id=course.group_id, user_id=current_user.id
                         ).first()
@@ -572,7 +564,6 @@ def generate_schedule():
                         if group_busy:
                             continue
 
-                        # Ищем подходящую аудиторию
                         suitable_room = None
                         for room in rooms:
                             if room.type == course.room_type:
@@ -589,7 +580,6 @@ def generate_schedule():
                                             break
 
                         if suitable_room:
-                            # Создаем слот расписания
                             schedule_slot = ScheduleSlot(
                                 day=day_index,
                                 slot=slot,
@@ -602,7 +592,7 @@ def generate_schedule():
                             db.session.add(schedule_slot)
                             slots_created += 1
                             hours_placed += 1
-                            break  # Переходим к следующему часу курса
+                            break
 
         db.session.commit()
 
@@ -629,29 +619,18 @@ def clear_schedule():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-# --- Старая совместимость ---
-@app.route('/api/generate', methods=['POST'])
-@login_required
-def generate():
-    return generate_schedule()
-
-
 if __name__ == '__main__':
     with app.app_context():
-        # Создаем папки
         os.makedirs('templates', exist_ok=True)
         os.makedirs('static/css', exist_ok=True)
 
-        # Создаем таблицы
         db.create_all()
         print("✅ База данных создана")
 
-        # Создаем администратора если его нет
-        if User.query.filter_by(username='admin').first() is None:
-            admin = User(username='admin', email='admin@scheduler.ru', is_admin=True)
-            admin.set_password('admin123')
+        if User.query.filter_by(username='scheduler').first() is None:
+            admin = User(username='scheduler', email='admin@scheduler.ru', is_admin=True)
+            admin.set_password('scheduler2025')
             db.session.add(admin)
             db.session.commit()
-            print("✅ Администратор создан (логин: admin, пароль: admin123)")
 
     app.run()
