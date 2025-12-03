@@ -47,7 +47,6 @@
 ```
 smart-scheduler/
 ├── app.py                 # Основной файл приложения Flask
-├── scheduler.db           # База данных SQLite
 ├── requirements.txt       # Зависимости Python
 ├── templates/             # HTML-шаблоны
 │   ├── base.html         # Базовый шаблон (авторизованные пользователи)
